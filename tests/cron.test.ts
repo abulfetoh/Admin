@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { authorised, cleanup, isTask, runTask } from "@/lib/cron";
 import { registerUser, createSession } from "@/lib/auth";
 import { allow } from "@/lib/ratelimit";
@@ -33,6 +33,8 @@ describe("cron tasks", () => {
     expect(out.bad.error).toMatch(/404/);
   });
   it("cleanup removes only expired/stale rows", async () => {
+    // allow() opportunistically deletes expired counters ~1% of the time; pin it so this test is deterministic.
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = await memDb();
     const u = await registerUser(db, { email: "u@x.com", password: "long-enough-pass", name: "U", role: "candidate" });
     const now = new Date("2026-06-01T00:00:00Z");
@@ -50,5 +52,6 @@ describe("cron tasks", () => {
     expect((await db.query<{ key: string }>("SELECT key FROM rate_limits ORDER BY key")).rows.map((x) => x.key)).toEqual(["hourly", "k2", "quarter"]);
     expect(await allow(db, "hourly", 1, 3600, now)).toBe(false); // counter survived: 2nd hit in same window exceeds limit 1
     expect(live.token).toBeTruthy();
+    vi.restoreAllMocks();
   });
 });
