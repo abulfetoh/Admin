@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import type { Db } from "./db";
 import type { User } from "./auth";
+import { isVerified } from "./account";
 import { enqueueEmail } from "./email";
 import { withUser } from "./rls";
 import { jobPath, searchJobs } from "./jobs";
@@ -13,6 +14,7 @@ const Input = z.object({ q: z.string().trim().max(200).default(""), location: z.
 
 export async function createSavedSearch(db: Db, user: User, input: unknown, now = new Date()): Promise<number> {
   const p = Input.parse(input);
+  if (!(await isVerified(db, user.id))) throw new Error("Verify your email before creating alerts");
   const n = Number((await db.query<{ n: string }>("SELECT count(*) n FROM saved_searches WHERE user_id=$1", [user.id])).rows[0].n);
   if (n >= MAX_SAVED_SEARCHES) throw new Error(`You can save up to ${MAX_SAVED_SEARCHES} searches`);
   return (await db.query<{ id: number }>(
@@ -38,7 +40,7 @@ export async function unsubscribe(db: Db, token: string): Promise<boolean> {
 /** For each saved search, emails jobs posted since the last run. Fuzzy (typo) matches are excluded to avoid noisy alerts. */
 export async function runAlerts(db: Db, now = new Date()): Promise<{ emails: number }> {
   const searches = (await db.query<{ id: number; email: string; q: string; location: string; remote: boolean; token: string; last_run_at: Date }>(
-    `SELECT s.id, u.email, s.q, s.location, s.remote, s.token, s.last_run_at FROM saved_searches s JOIN users u ON u.id=s.user_id ORDER BY s.id`,
+    `SELECT s.id, u.email, s.q, s.location, s.remote, s.token, s.last_run_at FROM saved_searches s JOIN users u ON u.id=s.user_id WHERE u.email_verified_at IS NOT NULL ORDER BY s.id`,
   )).rows;
   let emails = 0;
   for (const s of searches) {

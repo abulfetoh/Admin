@@ -10,8 +10,19 @@ export const consoleTransport: EmailTransport = {
   },
 };
 
-export function getTransport(): EmailTransport {
-  return consoleTransport; // TODO(integration): select provider via env once one is chosen (see docs/integrations-registry.md)
+/** Dev/test transport: appends one JSON line per message to `file`. */
+export function fileTransport(file: string): EmailTransport {
+  return { async send(m) { (await import("node:fs")).appendFileSync(file, JSON.stringify(m) + "\n"); } };
+}
+
+export function getTransport(env: Record<string, string | undefined> = process.env): EmailTransport {
+  if (env.EMAIL_TRANSPORT === "file" && env.EMAIL_FILE) return fileTransport(env.EMAIL_FILE);
+  return consoleTransport; // TODO(integration): select a real provider via env once one is chosen (see docs/integrations-registry.md)
+}
+
+/** Best-effort immediate send for transactional mail (verify/reset). Failures stay in the outbox for retry. */
+export async function deliverNow(db: Db): Promise<void> {
+  try { await flushOutbox(db, getTransport(), 10); } catch (e) { console.error("deliverNow failed", e); }
 }
 
 export async function enqueueEmail(db: Db, m: EmailMessage): Promise<void> {

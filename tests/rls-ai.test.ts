@@ -4,12 +4,14 @@ import { AI_DAILY_LIMIT, AiDisabledError, AiRateLimitError, anthropicProvider, g
 import { emptyProfile, getProfile, saveProfile } from "@/lib/profile";
 import { createSavedSearch, listSavedSearches } from "@/lib/alerts";
 import { withUser } from "@/lib/rls";
-import { memDb } from "./helpers";
+import { memDb, verify } from "./helpers";
 
 async function two() {
   const db = await memDb();
   const mk = (e: string) => registerUser(db, { email: e, password: "long-enough-pass", name: e, role: "candidate" });
-  return { db, a: await mk("a@x.com"), b: await mk("b@x.com") };
+  const a = await mk("a@x.com"), b = await mk("b@x.com");
+  await verify(db, a.id); await verify(db, b.id);
+  return { db, a, b };
 }
 
 describe("RLS", () => {

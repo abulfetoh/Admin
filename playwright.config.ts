@@ -11,7 +11,7 @@ export default defineConfig({
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
   },
   webServer: {
-    command: `rm -rf data/e2e && DB_DIR=data/e2e npm run seed && DB_DIR=data/e2e npx next start -p ${PORT}`,
+    command: `rm -rf data/e2e data/e2e-mail.jsonl && DB_DIR=data/e2e npm run seed && DB_DIR=data/e2e EMAIL_TRANSPORT=file EMAIL_FILE=data/e2e-mail.jsonl npx next start -p ${PORT}`,
     port: PORT,
     timeout: 120_000,
     reuseExistingServer: false,

@@ -3,7 +3,7 @@ import { registerUser } from "@/lib/auth";
 import { createSavedSearch, deleteSavedSearch, MAX_SAVED_SEARCHES, runAlerts, unsubscribe } from "@/lib/alerts";
 import { flushOutbox, type EmailTransport } from "@/lib/email";
 import { createJob } from "@/lib/employer";
-import { memDb } from "./helpers";
+import { memDb, verify } from "./helpers";
 
 const job = (title: string) => ({ title, description: "A description that is long enough to pass.", apply_url: "https://a.test/x", city: "Cairo" });
 
@@ -11,6 +11,7 @@ async function world() {
   const db = await memDb();
   const emp = await registerUser(db, { email: "e@x.com", password: "long-enough-pass", name: "E", role: "employer" });
   const cand = await registerUser(db, { email: "c@x.com", password: "long-enough-pass", name: "C", role: "candidate" });
+  await verify(db, emp.id); await verify(db, cand.id);
   return { db, emp, cand };
 }
 

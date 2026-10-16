@@ -2,6 +2,7 @@ node_modules
 .next
 data/pg
 data/e2e
+data/e2e-mail.jsonl
 test-results
 playwright-report
 *.tsbuildinfo

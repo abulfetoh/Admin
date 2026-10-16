@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import { listOwnJobs } from "@/lib/employer";
 import { requireRole } from "@/lib/session";
+import { VerifyNotice } from "@/app/verify-notice";
 import { closeJobAction } from "./actions";
 import { PostForm } from "./post-form";
 
@@ -13,6 +14,7 @@ export default async function Employer() {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Employer portal</h1>
+      <VerifyNotice userId={user.id} />
       <section><h2 className="mb-2 font-semibold">Your jobs</h2>
         {jobs.length === 0 && <p className="text-sm">No jobs yet.</p>}
         <ul className="space-y-1 text-sm">{jobs.map((j) => (

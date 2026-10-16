@@ -11,3 +11,7 @@ export async function addSource(db: Db, key: string, adapter: string, config: ob
 export function feedFetch(body: unknown, status = 200): typeof fetch {
   return (async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })) as typeof fetch;
 }
+
+export async function verify(db: Db, userId: number) {
+  await db.query("UPDATE users SET email_verified_at = now() WHERE id=$1", [userId]);
+}

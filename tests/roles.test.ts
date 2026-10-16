@@ -3,13 +3,13 @@ import { registerUser } from "@/lib/auth";
 import { createJob, ForbiddenError, listOwnJobs, setJobStatus } from "@/lib/employer";
 import { listUsers, setUserRole } from "@/lib/admin";
 import { searchJobs } from "@/lib/jobs";
-import { memDb } from "./helpers";
+import { memDb, verify } from "./helpers";
 
 const job = { title: "Backend Developer", description: "Build and run our APIs in a small friendly team.", apply_url: "https://acme.test/apply", city: "Cairo" };
 
 async function world() {
   const db = await memDb();
-  const mk = (email: string, role: "candidate" | "employer") => registerUser(db, { email, password: "long-enough-pass", name: email.split("@")[0], role });
+  const mk = async (email: string, role: "candidate" | "employer") => { const u = await registerUser(db, { email, password: "long-enough-pass", name: email.split("@")[0], role }); await verify(db, u.id); return u; };
   const emp1 = await mk("e1@x.com", "employer");
   const emp2 = await mk("e2@x.com", "employer");
   const cand = await mk("c@x.com", "candidate");

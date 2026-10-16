@@ -1,6 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
 
 const pw = "correct-horse-battery";
+/** Newest email to `to` from the file transport; polls because delivery happens just after the action returns. */
+async function linkFor(to: string, kind: "verify" | "reset"): Promise<string> {
+  let link = "";
+  await expect.poll(() => {
+    const lines = fs.existsSync("data/e2e-mail.jsonl") ? fs.readFileSync("data/e2e-mail.jsonl", "utf8").trim().split("\n") : [];
+    const msgs = lines.map((l) => JSON.parse(l)).filter((m) => m.to === to && m.body.includes(`/${kind}/`));
+    link = msgs.length ? msgs[msgs.length - 1].body.match(new RegExp(`https?://[^/]+(/${kind}/[\\w-]+)`))![1] : "";
+    return link;
+  }).not.toBe("");
+  return link;
+}
+async function confirmEmail(page: Page, email: string) {
+  await page.goto(await linkFor(email, "verify"));
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByRole("status")).toContainText("confirmed");
+}
+
 const uniq = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
 test("typo search shows similar results; Arabic page is RTL with hreflang", async ({ page }) => {
@@ -34,9 +52,12 @@ test("role guards: anonymous and candidate cannot reach admin/employer", async (
 test("candidate saves a profile and an alert", async ({ page }) => {
   await page.goto("/register");
   await page.getByLabel("Name").fill("Cand Two");
-  await page.getByLabel("Email").fill(`cand${uniq()}@example.com`);
+  const cemail = `cand${uniq()}@example.com`;
+  await page.getByLabel("Email").fill(cemail);
   await page.getByLabel("Password").fill(pw);
   await page.getByRole("button", { name: "Create account" }).click();
+  await confirmEmail(page, cemail);
+  await page.goto("/account");
   await page.getByLabel("Headline").fill("Data person");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
@@ -51,10 +72,15 @@ test("employer posts a job that becomes searchable and can close it", async ({ p
   await page.goto("/register");
   await page.getByLabel("Name").fill("Emp");
   await page.getByLabel("I am a").selectOption("employer");
-  await page.getByLabel("Email").fill(`emp${uniq()}@example.com`);
+  const email = `emp${uniq()}@example.com`;
+  await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(pw);
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/employer$/);
+  await expect(page.getByText("Confirm your email to post jobs")).toBeVisible();
+  await confirmEmail(page, email);
+  await page.goto("/employer");
+  await expect(page.getByText("Confirm your email to post jobs")).toHaveCount(0);
   await page.getByLabel("Company name").fill("E2E Corp");
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Description").fill("We need someone who can wrangle browsers all day long.");
@@ -92,4 +118,43 @@ test("no ads or analytics before consent; analytics only after accepting", async
   await page.goto("/");
   await page.getByRole("button", { name: "Accept" }).click();
   await expect.poll(() => hits.some((u) => u.includes("/api/collect"))).toBe(true);
+});
+
+test("forgot password: generic response, link works once, old password stops working", async ({ page }) => {
+  const email = `reset${uniq()}@example.com`;
+  await page.goto("/register");
+  await page.getByLabel("Name").fill("Resetter");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(pw);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  await page.getByRole("button", { name: "Log out" }).click();
+
+  await page.goto("/forgot");
+  await page.getByLabel("Email").fill("unknown@example.com");
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  const generic = await page.getByRole("status").textContent();
+  await page.goto("/forgot");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  expect(await page.getByRole("status").textContent()).toBe(generic);
+
+  const link = await linkFor(email, "reset");
+  await page.goto(link);
+  await page.getByLabel("New password").fill("a-brand-new-password");
+  await page.getByRole("button", { name: "Set password" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto(link);
+  await page.getByLabel("New password").fill("yet-another-password");
+  await page.getByRole("button", { name: "Set password" }).click();
+  await expect(page.locator("form [role=alert]")).toContainText("invalid or has expired");
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(pw);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page.locator("form [role=alert]")).toHaveText("Invalid email or password");
+  await page.getByLabel("Password").fill("a-brand-new-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/account$/);
 });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { getProfile } from "@/lib/profile";
 import { requireRole } from "@/lib/session";
+import { VerifyNotice } from "@/app/verify-notice";
 import { ProfileForm } from "./profile-form";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function Account() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">My profile</h1>
+      <VerifyNotice userId={user.id} />
       <p className="text-sm"><Link className="underline" href="/account/alerts">Job alerts</Link> · <Link className="underline" href="/account/cv">Printable CV</Link> · <a className="underline" href="/account/cv.pdf">Download PDF (Latin text only)</a></p>
       <ProfileForm p={p} />
     </div>

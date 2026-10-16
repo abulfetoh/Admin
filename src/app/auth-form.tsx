@@ -19,7 +19,7 @@ export function AuthForm({ action, mode }: { action: (s: FormState, fd: FormData
           </label>
         </>
       )}
-      <label className="block text-sm">Email<input name="email" type="email" required className={input} autoComplete="email" /></label>
+      <label className="block text-sm">Email<input name="email" type="email" required defaultValue={state.email} key={state.email} className={input} autoComplete="email" /></label>
       <label className="block text-sm">Password<input name="password" type="password" required minLength={mode === "register" ? 10 : undefined} className={input} autoComplete={mode === "login" ? "current-password" : "new-password"} /></label>
       {state.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
       <button disabled={pending} className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60">{mode === "login" ? "Log in" : "Create account"}</button>

@@ -1,6 +1,7 @@
 import { listSavedSearches } from "@/lib/alerts";
 import { getDb } from "@/lib/db";
 import { requireRole } from "@/lib/session";
+import { VerifyNotice } from "@/app/verify-notice";
 import { createAlertAction, deleteAlertAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function Alerts() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Job alerts</h1>
+      <VerifyNotice userId={user.id} />
       <form action={createAlertAction} className="flex flex-wrap gap-2">
         <input name="q" placeholder="Keywords" aria-label="Keywords" className={c} />
         <input name="location" placeholder="Location" aria-label="Location" className={c} />
