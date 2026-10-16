@@ -1,12 +1,19 @@
 # Architecture
 
 - **Next.js 15 (App Router) + TypeScript + Tailwind 4.** Pages are server-rendered (`force-dynamic`) from the DB.
-- **DB:** embedded Postgres (PGlite, `data/pg`) for dev with `pg_trgm`. SQL migrations in `migrations/`, applied by `src/lib/db.ts#migrate`. Production should use managed Postgres; the SQL is plain Postgres.
-- **Search** (`src/lib/jobs.ts`): `websearch_to_tsquery('simple')` over a weighted generated `tsvector` (title > location > description); if nothing matches, falls back to trigram similarity on title/company for typo tolerance. The `simple` config keeps Arabic searchable (no stemming).
-- **i18n:** EN/AR dictionaries in `src/lib/i18n.ts`; locale in a `lang` cookie, `<html lang dir>` set (RTL for Arabic). Locale-prefixed URLs + hreflang are NOT done yet.
-- **SEO:** `robots.ts`, `sitemap.ts`, canonical URLs, slug redirect (308), `JobPosting` JSON-LD only for active, unexpired jobs with a description (`src/lib/jsonld.ts`).
-- **Ingestion:** `src/lib/ingest/` — adapters return the full current job set; `run.ts` handles dedupe, upsert, expiry, run logging.
+- **DB:** embedded Postgres (PGlite, `data/pg`, or `DB_DIR`) with `pg_trgm`. SQL migrations in `migrations/` (001 init, 002 auth, 003 employer, 004 profiles, 005 alerts/outbox, 006 RLS + AI usage, 007 analytics), applied by `src/lib/db.ts#migrate`. PGlite is single-process: **production needs a managed Postgres and a `pg` driver behind the `Db` interface — not wired yet.**
+- **Search** (`src/lib/jobs.ts`): `websearch_to_tsquery('simple')` over a weighted generated `tsvector`; on zero hits, trigram similarity on title/company (typo tolerance). `simple` config keeps Arabic searchable (no stemming).
+- **Auth** (`src/lib/auth.ts`): scrypt password hashes, DB-backed sessions (only the SHA-256 of the token is stored), httpOnly cookie, 5-failure/15-min account lockout, identical error for unknown user vs wrong password. Roles: candidate / employer / admin. Admin cannot be self-registered (`npm run make-admin -- email`). Guards: `requireRole()` in `src/lib/session.ts`; business rules (ownership, admin-only) are also enforced in `lib/employer.ts` / `lib/admin.ts`, not just in pages.
+- **RLS** (`migrations/006`, `src/lib/rls.ts`): `profiles` and `saved_searches` have forced row-level security for role `app_user`; `withUser()` switches role and sets `app.user_id` per transaction. Only those two tables are covered, and only code paths that use `withUser()` are protected — the default connection is a superuser and bypasses RLS.
+- **i18n/SEO:** English unprefixed, Arabic under `/ar` (middleware rewrites and sets `x-locale`). `alternatesFor()` emits canonical + hreflang (`en`, `ar`, `x-default`); sitemap lists both locales with alternates. Landing pages `/country|city|company/[slug]` are `noindex` and excluded from the sitemap below 3 active jobs. `JobPosting` JSON-LD only for active, unexpired jobs with a description.
+- **Employer / admin:** `/employer` (post, close own jobs), `/admin` (stats, sources, ingestion runs, users/roles, remove job, top pages).
+- **Candidates:** `/account` profile, `/account/cv` printable CV (any script), `/account/cv.pdf` server PDF (Latin text only; returns 422 otherwise), `/account/alerts` saved searches.
+- **Alerts/email:** `runAlerts` enqueues digests into `email_outbox`; `flushOutbox` sends via an `EmailTransport` (currently console only) with 3 attempts. Run with `npm run alerts` on a schedule. Unsubscribe is a POST confirmation page.
+- **AI** (`src/lib/ai.ts`): provider interface; off unless `AI_PROVIDER` is set (`mock`, or `anthropic` with `ANTHROPIC_API_KEY` + `AI_MODEL`); 10 uses/user/day. Backend only — no UI yet.
+- **Consent/analytics:** opt-in consent cookie; Global Privacy Control treated as reject; AdSense script loads only with consent + `ADSENSE_CLIENT`; first-party analytics stores path, locale, referrer host only, and the server re-checks consent.
+- **Ingestion:** see `docs/job-sources.md`.
 
 ## Commands
-`npm run migrate | seed | ingest [-- <source> --dry-run] | test | typecheck | lint | build`
-`SITE_URL` sets the canonical origin (default https://today-jobs.com — domain not purchased/verified).
+`npm run migrate | seed | ingest | alerts | make-admin | test | e2e | typecheck | lint | build`
+E2E locally: `npm run build && PW_CHROMIUM_PATH=<chrome> npm run e2e` (CI installs Playwright's Chromium).
+Env: `SITE_URL` (default https://today-jobs.com — domain not purchased/verified), `DB_DIR`, `ADSENSE_CLIENT`, `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `AI_MODEL`.

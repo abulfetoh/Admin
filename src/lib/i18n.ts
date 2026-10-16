@@ -22,6 +22,9 @@ const en = {
     jobExpired: "This job is no longer available.",
     next: "Next",
     prev: "Previous",
+    consentText: "We use optional cookies for anonymous analytics and advertising. Nothing optional loads unless you accept.",
+    consentAccept: "Accept",
+    consentReject: "Reject",
 } as const;
 
 const ar: Record<keyof typeof en, string> = {
@@ -42,7 +45,20 @@ const ar: Record<keyof typeof en, string> = {
     jobExpired: "هذه الوظيفة لم تعد متاحة.",
     next: "التالي",
     prev: "السابق",
+    consentText: "نستخدم ملفات تعريف ارتباط اختيارية للتحليلات المجهولة والإعلانات. لن يتم تحميل أي شيء اختياري ما لم توافق.",
+    consentAccept: "موافق",
+    consentReject: "رفض",
 };
 
 export type Dict = Record<keyof typeof en, string>;
 export const t = (l: Locale): Dict => (l === "ar" ? ar : en);
+
+/** English is unprefixed; Arabic lives under /ar. */
+export const localePath = (l: Locale, path: string): string => {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return l === DEFAULT_LOCALE ? p : p === "/" ? `/${l}` : `/${l}${p}`;
+};
+export function splitLocale(pathname: string): { locale: Locale; path: string } {
+  const m = pathname.match(/^\/(ar)(\/.*)?$/);
+  return m ? { locale: m[1] as Locale, path: m[2] ?? "/" } : { locale: DEFAULT_LOCALE, path: pathname };
+}

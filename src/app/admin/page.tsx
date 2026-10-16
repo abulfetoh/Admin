@@ -1,3 +1,4 @@
+import { topPages } from "@/lib/analytics";
 import { listRuns, listSources, listUsers, stats } from "@/lib/admin";
 import { getDb } from "@/lib/db";
 import { requireRole } from "@/lib/session";
@@ -9,11 +10,15 @@ export const metadata = { title: "Admin", robots: { index: false } };
 export default async function Admin() {
   const admin = await requireRole("admin");
   const db = await getDb();
-  const [s, users, runs, sources] = await Promise.all([stats(db, admin), listUsers(db, admin), listRuns(db, admin), listSources(db, admin)]);
+  const [s, users, runs, sources, pages] = await Promise.all([stats(db, admin), listUsers(db, admin), listRuns(db, admin), listSources(db, admin), topPages(db, admin)]);
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Admin</h1>
       <p className="text-sm">Active jobs: {s.activeJobs} · Users: {s.users} · Companies: {s.companies}</p>
+
+      <section><h2 className="mb-2 font-semibold">Top pages (7 days, consented visits only)</h2>
+        <ul className="text-sm">{pages.map((p) => <li key={p.path}>{p.views} — {p.path}</li>)}</ul>
+      </section>
 
       <section><h2 className="mb-2 font-semibold">Sources</h2>
         <ul className="space-y-1 text-sm">{sources.map((x) => (

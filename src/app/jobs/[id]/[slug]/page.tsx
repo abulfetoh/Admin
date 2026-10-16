@@ -4,7 +4,8 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { getJob, jobPath } from "@/lib/jobs";
 import { jobPostingJsonLd } from "@/lib/jsonld";
-import { t } from "@/lib/i18n";
+import { localePath, t } from "@/lib/i18n";
+import { alternatesFor } from "@/lib/seo";
 import { getLocale, SITE_URL } from "@/lib/locale";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: P): Promise<Metadata> {
   return {
     title: `${job.title} – ${job.company_name}`,
     description: job.description.slice(0, 155),
-    alternates: { canonical: `${SITE_URL}${jobPath(job)}` },
+    alternates: alternatesFor(await getLocale(), jobPath(job)),
     robots: job.status === "active" ? undefined : { index: false },
   };
 }
@@ -27,14 +28,15 @@ export default async function JobPage({ params }: P) {
   if (!/^\d+$/.test(id)) notFound();
   const job = await getJob(await getDb(), +id);
   if (!job) notFound();
-  if (slug !== jobPath(job).split("/")[3]) permanentRedirect(jobPath(job));
-  const s = t(await getLocale());
+  if (slug !== jobPath(job).split("/")[3]) permanentRedirect(localePath(await getLocale(), jobPath(job)));
+  const locale = await getLocale();
+  const s = t(locale);
   const ld = jobPostingJsonLd(job, SITE_URL);
 
   return (
     <article>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, "\\u003c") }} />}
-      <Link href="/" className="text-sm underline">{s.backToResults}</Link>
+      <Link href={localePath(locale, "/")} className="text-sm underline">{s.backToResults}</Link>
       <h1 className="mt-3 text-2xl font-bold">{job.title}</h1>
       <p className="text-slate-700">{job.company_name}{job.location ? ` · ${job.location}` : ""}{job.remote ? ` · ${s.remote}` : ""}</p>
       <p className="text-sm text-slate-500">{s.postedOn} {job.posted_at.toISOString().slice(0, 10)}</p>
