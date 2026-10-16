@@ -1,6 +1,11 @@
 -- Defense-in-depth: user-owned tables are row-level secured for the unprivileged app_user role.
 -- The app sets `app.user_id` per transaction (see src/lib/rls.ts). Superuser/maintenance connections bypass RLS by design.
-CREATE ROLE app_user NOLOGIN;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN CREATE ROLE app_user NOLOGIN; END IF;
+EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; -- lost a race with a concurrent migration
+END $$;
+-- lets a non-superuser application login (the one running migrations) `SET ROLE app_user`
+GRANT app_user TO CURRENT_USER;
 GRANT USAGE ON SCHEMA public TO app_user;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON profiles, saved_searches TO app_user;

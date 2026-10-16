@@ -1,9 +1,8 @@
 // Dev-only demo data: inserts clearly fictional jobs through the real ingestion pipeline.
-import path from "node:path";
-import { createDb } from "../src/lib/db";
+import { openDb } from "../src/lib/db";
 import { ingestSource } from "../src/lib/ingest/run";
 
-const db = await createDb(process.env.DB_DIR ?? path.join(process.cwd(), "data", "pg"));
+const db = await openDb();
 await db.query(
   `INSERT INTO sources(key, adapter, config, terms_url) VALUES ('demo','json_feed','{"url":"https://demo.invalid/feed.json"}','https://demo.invalid/terms') ON CONFLICT (key) DO NOTHING`,
 );

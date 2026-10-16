@@ -1,6 +1,4 @@
-import type { Db } from "./db";
-
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+import type { Db, Tx } from "./db";
 
 /**
  * Runs `fn` in a transaction as the unprivileged `app_user` role with `app.user_id` set,
