@@ -8,13 +8,15 @@ let admin: Pool | undefined;
 /**
  * Fresh isolated database per call. PGlite in-memory by default; set TEST_DATABASE_URL
  * (e.g. postgres://postgres@localhost:5433/postgres) to run the whole suite against real Postgres.
+ * TEST_DB_OPTIONS adds CREATE DATABASE options, e.g. "TEMPLATE template0 ENCODING UTF8 LOCALE_PROVIDER icu ICU_LOCALE 'en-US'"
+ * to emulate the en_US collation of the official postgres Docker image (CI) — results must not depend on collation.
  */
 export async function memDb(): Promise<Db> {
   const base = process.env.TEST_DATABASE_URL;
   if (!base) return createDb();
   admin ??= new Pool({ connectionString: base, max: 2 });
   const name = `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-  await admin.query(`CREATE DATABASE ${name}`);
+  await admin.query(`CREATE DATABASE ${name} ${process.env.TEST_DB_OPTIONS ?? ""}`);
   const u = new URL(base);
   u.pathname = `/${name}`;
   const db = await createDb(undefined, u.toString());

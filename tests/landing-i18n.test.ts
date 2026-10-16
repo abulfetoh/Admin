@@ -34,4 +34,14 @@ describe("landing facets", () => {
     await ingestSource(db, "s", { fetchFn: feedFetch({ jobs: [j("3", "UAE", "Beta")] }) }); // 1,2 expire
     expect(await jobsForFacet(db, "country", "egypt")).toBeNull();
   });
+
+  it("display name and ordering are deterministic regardless of row order/collation", async () => {
+    const db = await memDb();
+    await addSource(db, "s", "json_feed", { url: "https://s.test/f" });
+    const mk = (id: string, country: string) => ({ id, title: `Job ${id}`, company: "Acme", country, city: "X", apply_url: "https://s.test/" + id, description: "d" });
+    // egypt/Egypt tie 1-1 (capitalised spelling wins); kenya x2 beats Kenya x1 (majority spelling wins); ghana/egypt tie on total, ordered by slug
+    await ingestSource(db, "s", { fetchFn: feedFetch({ jobs: [mk("1", "egypt"), mk("2", "Egypt"), mk("3", "kenya"), mk("4", "kenya"), mk("5", "Kenya"), mk("6", "Ghana"), mk("7", "Ghana")] }) });
+    const v = await facetValues(db, "country");
+    expect(v.map((x) => [x.slug, x.name, x.n])).toEqual([["kenya", "kenya", 3], ["egypt", "Egypt", 2], ["ghana", "Ghana", 2]]);
+  });
 });

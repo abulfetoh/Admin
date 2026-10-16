@@ -13,14 +13,20 @@ export async function facetValues(db: Db, facet: Facet): Promise<{ name: string;
     `SELECT ${col} AS name, count(*) n FROM jobs j JOIN companies c ON c.id=j.company_id
      WHERE j.status='active' AND ${col} IS NOT NULL AND ${col} <> '' GROUP BY ${col} ORDER BY count(*) DESC`,
   )).rows;
-  // merge values that differ only by case/spacing (e.g. "Egypt" / "egypt")
-  const merged = new Map<string, { name: string; slug: string; n: number }>();
+  // Merge values that differ only by case/spacing (e.g. "Egypt" / "egypt").
+  // Display name must not depend on row order or DB collation: most frequent spelling wins; ties prefer a
+  // spelling that has capitals, then plain code-unit order.
+  const bySlug = new Map<string, { name: string; n: number }[]>();
   for (const r of rows) {
     const slug = slugify(r.name);
-    const cur = merged.get(slug);
-    if (cur) cur.n += Number(r.n); else merged.set(slug, { name: r.name, slug, n: Number(r.n) });
+    bySlug.set(slug, [...(bySlug.get(slug) ?? []), { name: r.name, n: Number(r.n) }]);
   }
-  return [...merged.values()];
+  const hasCaps = (s: string) => s !== s.toLowerCase();
+  const out = [...bySlug.entries()].map(([slug, variants]) => {
+    const best = [...variants].sort((a, b) => b.n - a.n || Number(hasCaps(b.name)) - Number(hasCaps(a.name)) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))[0];
+    return { name: best.name, slug, n: variants.reduce((t, v) => t + v.n, 0) };
+  });
+  return out.sort((a, b) => b.n - a.n || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
 }
 
 export async function jobsForFacet(db: Db, facet: Facet, slug: string, limit = 50): Promise<{ name: string; jobs: JobRow[] } | null> {

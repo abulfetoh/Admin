@@ -30,6 +30,7 @@ jobs:
         if: failure()
         with:
           name: playwright-report
+          if-no-files-found: ignore
           path: |
             playwright-report
             test-results
