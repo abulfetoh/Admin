@@ -60,6 +60,8 @@ export async function createDb(dataDir?: string, url: string | undefined = undef
   if (url) {
     db = pgDb(url);
   } else {
+    // PGlite's node fs does a non-recursive mkdir, so a fresh checkout (no data/ yet) would crash on first run.
+    if (dataDir) fs.mkdirSync(/* turbopackIgnore: true */ dataDir, { recursive: true });
     const p = new PGlite({ ...(dataDir ? { dataDir } : {}), extensions: { pg_trgm } });
     await p.waitReady;
     db = pgliteDb(p);
