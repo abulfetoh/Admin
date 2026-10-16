@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { splitLocale } from "@/lib/i18n";
 
-/** /ar/* is rewritten to the same route with x-locale=ar; everything else is English. */
-export function middleware(req: NextRequest) {
+/** (Next 16 "proxy", formerly middleware) /ar/* is rewritten to the same route with x-locale=ar; everything else is English. */
+export function proxy(req: NextRequest) {
   const { locale, path } = splitLocale(req.nextUrl.pathname);
   const headers = new Headers(req.headers);
   headers.set("x-locale", locale);

@@ -18,9 +18,9 @@ export async function migrate(db: Db, dir = path.join(process.cwd(), "migrations
   );
   const done = new Set((await db.query<{ name: string }>("SELECT name FROM schema_migrations")).rows.map((r) => r.name));
   const applied: string[] = [];
-  for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+  for (const f of fs.readdirSync(/* turbopackIgnore: true */ dir).filter((f) => f.endsWith(".sql")).sort()) {
     if (done.has(f)) continue;
-    await db.exec(fs.readFileSync(path.join(dir, f), "utf8"));
+    await db.exec(fs.readFileSync(path.join(/* turbopackIgnore: true */ dir, f), "utf8"));
     await db.query("INSERT INTO schema_migrations(name) VALUES ($1)", [f]);
     applied.push(f);
   }

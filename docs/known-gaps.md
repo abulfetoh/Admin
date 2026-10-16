@@ -1,7 +1,7 @@
 # Known gaps (as of this build)
 
-Security/accounts: no email verification, no password reset, no IP-based rate limiting (lockout is per account), no CSRF layer beyond Next.js server-action origin checks, session cookie is `secure` only when `NODE_ENV=production`.
-Data: PGlite only (see architecture); RLS covers 2 tables; no GDPR export endpoint (account deletion helper exists in `lib/profile.ts` but has no UI).
-Product: AI has no UI; CV PDF can't render Arabic (use printable view); alerts are daily-digest-style only (run `npm run alerts` on a schedule — no scheduler included); employer jobs have no editing UI; landing pages have no translated names.
-Dependencies: `npm audit` reports high-severity advisories (e.g. in Next's bundled postcss); fix needs a Next major bump — not applied.
-Ops: domain today-jobs.com not purchased; sitemap/canonicals use it as a placeholder.
+**Security/accounts:** email verification, password reset, per-IP rate limiting (login/register/forgot/reset/resend), account export and deletion are implemented. Remaining: no 2FA; no CAPTCHA; IP rate limiting trusts `x-forwarded-for`, so deploy behind a proxy that overwrites it; session cookie is `secure` only when `NODE_ENV=production`; verification/reset emails are only delivered if a real `EmailTransport` is configured (currently console/file only).
+**Data:** PGlite only (single process) — production needs managed Postgres plus a `pg` adapter behind the `Db` interface (not written); RLS covers `profiles` and `saved_searches` only.
+**Product:** AI has no UI; CV PDF can't render Arabic (printable view works); no scheduler for `npm run alerts` / `npm run ingest`; employer jobs can't be edited (only closed); landing-page names aren't translated; admin cannot create sources from the UI (SQL only).
+**Dependencies:** Next upgraded to 16.4.2, clearing the `next`/`postcss` advisories. `npm audit` still reports 5 high findings in the dev-only lint chain (`eslint-config-next` -> `@next/eslint-plugin-next` -> `fast-glob` -> `micromatch` -> `braces <=3.0.3`; stack exhaustion on deeply nested glob patterns). No patched `braces` release existed when checked (latest 3.0.3), and the suggested `npm audit fix --force` would *downgrade* to Next 14 — do not run it. Not reachable from user input at runtime.
+**Ops:** domain today-jobs.com not purchased (placeholder via `SITE_URL`); CI workflow never executed on GitHub; Greenhouse/Anthropic/AdSense integrations never exercised live (see integrations-registry.md).

@@ -1,20 +1,20 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
 import { CONSENT_COOKIE, parseConsent, serializeConsent, type Consent } from "@/lib/consent";
 
 interface Labels { text: string; accept: string; reject: string }
 
-function readCookie(): Consent | null {
-  const m = document.cookie.split("; ").find((c) => c.startsWith(`${CONSENT_COOKIE}=`));
-  return parseConsent(m?.slice(CONSENT_COOKIE.length + 1));
-}
+const EVENT = "consent-change";
+// Snapshot is the raw cookie string (a stable primitive); "" = undecided. Server snapshot is null = unknown (avoids hydration mismatch).
+const rawCookie = () => document.cookie.split("; ").find((c) => c.startsWith(`${CONSENT_COOKIE}=`))?.slice(CONSENT_COOKIE.length + 1) ?? "";
+const subscribe = (cb: () => void) => { window.addEventListener(EVENT, cb); return () => window.removeEventListener(EVENT, cb); };
 
 export function ConsentAndTracking({ labels, locale, adsClient, gpc }: { labels: Labels; locale: string; adsClient?: string; gpc: boolean }) {
-  const [consent, setConsent] = useState<Consent | null | undefined>(undefined);
+  const raw = useSyncExternalStore(subscribe, rawCookie, () => null);
+  const consent: Consent | null | undefined = raw === null ? undefined : parseConsent(raw);
   const path = usePathname();
-  useEffect(() => setConsent(readCookie()), []);
 
   useEffect(() => {
     if (consent?.analytics && !gpc) {
@@ -24,7 +24,7 @@ export function ConsentAndTracking({ labels, locale, adsClient, gpc }: { labels:
 
   const choose = (c: Consent) => {
     document.cookie = `${CONSENT_COOKIE}=${serializeConsent(c)}; path=/; max-age=15552000; samesite=lax`;
-    setConsent(c);
+    window.dispatchEvent(new Event(EVENT));
   };
 
   return (
