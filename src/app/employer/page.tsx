@@ -20,7 +20,7 @@ export default async function Employer() {
       <section><h2 className="mb-2 font-semibold">Your jobs</h2>
         {jobs.length === 0 && <p className="text-sm">No jobs yet.</p>}
         <ul className="space-y-1 text-sm">{jobs.map((j) => (
-          <li key={j.id} className="flex gap-3"><a className="underline" href={`/jobs/${j.id}/x`}>{j.title}</a> <span>{j.status}</span>
+          <li key={j.id} className="flex gap-3"><a className="underline" href={`/jobs/${j.id}/x`}>{j.title}</a> <span>{j.status}</span> <Link className="underline" href={`/employer/${j.id}`}>Edit</Link>
             {j.status === "active" && <form action={closeJobAction}><input type="hidden" name="id" value={j.id} /><button className="underline">Close</button></form>}
           </li>))}
         </ul>

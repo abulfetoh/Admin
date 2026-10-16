@@ -73,3 +73,15 @@ export async function getJson(url: string, ctx: { fetchFn: typeof fetch; userAge
     { sleep },
   );
 }
+
+/** https only; refuses localhost / private / link-local / metadata IP literals. (Hostnames resolving to private IPs are NOT checked — admin-only input, but add DNS-level egress rules in production.) */
+export function assertPublicHttpsUrl(raw: string): URL {
+  const u = new URL(raw);
+  if (u.protocol !== "https:") throw new Error("URL must use https");
+  const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const v4 = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  const privateV4 = v4 && (() => { const [a, b] = [Number(v4[1]), Number(v4[2])]; return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224; })();
+  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".internal") || h.endsWith(".local") || privateV4 || h.includes(":")) throw new Error("URL host is not allowed");
+  return u;
+}
+

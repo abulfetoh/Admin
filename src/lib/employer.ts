@@ -61,3 +61,24 @@ export async function setJobStatus(db: Db, user: User, jobId: number, status: "a
   if (status === "removed" && user.role !== "admin") throw new ForbiddenError("Only admins can remove");
   await db.query("UPDATE jobs SET status=$2 WHERE id=$1", [jobId, status]);
 }
+
+export async function getOwnJob(db: Db, user: User, jobId: number) {
+  const r = (await db.query<Record<string, unknown> & { posted_by: number | null }>(
+    "SELECT id, title, description, location, city, country, remote, employment_type, apply_url, valid_through, posted_by FROM jobs WHERE id=$1", [jobId])).rows[0];
+  if (!r || (r.posted_by !== user.id && user.role !== "admin")) throw new ForbiddenError("Not found");
+  return r;
+}
+
+/** Owner (or admin) edits; re-validates everything and refreshes the hashes used for change detection / dedupe. */
+export async function updateJob(db: Db, user: User, jobId: number, input: unknown): Promise<void> {
+  await getOwnJob(db, user, jobId);
+  const p = JobInput.parse(input);
+  const vt = p.valid_through ? new Date(p.valid_through) : null;
+  if (vt && Number.isNaN(vt.getTime())) throw new Error("Invalid valid_through");
+  const company = (await db.query<{ name: string }>("SELECT c.name FROM jobs j JOIN companies c ON c.id=j.company_id WHERE j.id=$1", [jobId])).rows[0].name;
+  const raw = { externalId: "", title: p.title, company, description: p.description, location: p.location, applyUrl: p.apply_url, employmentType: p.employment_type, validThrough: vt ?? undefined };
+  await db.query(
+    `UPDATE jobs SET title=$2, description=$3, location=$4, city=$5, country=$6, remote=$7, employment_type=$8, apply_url=$9, valid_through=$10, content_hash=$11, dedupe_key=$12 WHERE id=$1`,
+    [jobId, p.title, p.description, p.location ?? null, p.city ?? null, p.country ?? null, p.remote ?? false, p.employment_type ?? null, p.apply_url, vt, contentHash(raw), dedupeKey({ company, title: p.title, city: p.city, location: p.location })],
+  );
+}

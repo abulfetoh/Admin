@@ -2,7 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { getDb } from "@/lib/db";
-import { saveProfile } from "@/lib/profile";
+import { getProfile, saveProfile } from "@/lib/profile";
+import { AiDisabledError, AiRateLimitError, getAiProvider, suggestSummary } from "@/lib/ai";
 import { requireRole } from "@/lib/session";
 
 /** The form posts one JSON textarea per list to stay simple and accessible without client JS. */
@@ -22,4 +23,16 @@ export async function saveProfileAction(_: { error?: string; ok?: boolean }, fd:
   }
   revalidatePath("/account");
   return { ok: true };
+}
+
+/** Explicit, user-triggered only. Uses the SAVED profile; the result is a suggestion the user must accept. */
+export async function suggestSummaryAction(): Promise<{ suggestion?: string; error?: string }> {
+  const user = await requireRole("candidate");
+  const db = await getDb();
+  try {
+    return { suggestion: await suggestSummary(db, getAiProvider(), user, await getProfile(db, user)) };
+  } catch (e) {
+    if (e instanceof AiDisabledError || e instanceof AiRateLimitError) return { error: e.message };
+    return { error: "The AI service is unavailable right now" };
+  }
 }

@@ -13,7 +13,7 @@ export default defineConfig({
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
   },
   webServer: {
-    command: `rm -rf data/e2e data/e2e-mail.jsonl && ${dbEnv} npm run seed && ${dbEnv} EMAIL_TRANSPORT=file EMAIL_FILE=data/e2e-mail.jsonl npx next start -p ${PORT}`,
+    command: `rm -rf data/e2e data/e2e-mail.jsonl && ${dbEnv} npm run seed && ${dbEnv} EMAIL_TRANSPORT=file EMAIL_FILE=data/e2e-mail.jsonl AI_PROVIDER=mock CRON_SECRET=e2e-cron-secret-0123456789 npx next start -p ${PORT}`,
     port: PORT,
     timeout: 120_000,
     reuseExistingServer: false,

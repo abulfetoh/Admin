@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { RawJob, SourceAdapter } from "../types";
-import { getJson } from "../util";
+import { assertPublicHttpsUrl, getJson } from "../util";
 
 /**
  * Generic adapter for an employer/partner-provided JSON feed that they have
@@ -36,7 +36,7 @@ const date = (s?: string) => {
 export const jsonFeedAdapter: SourceAdapter = {
   name: "json_feed",
   async fetch(config, ctx) {
-    const url = z.string().url().parse(config.url);
+    const url = assertPublicHttpsUrl(z.string().url().parse(config.url)).toString(); // re-checked at fetch time, not only at creation
     const feed = Feed.parse(await getJson(url, ctx));
     const out: RawJob[] = [];
     for (const raw of feed.jobs) {

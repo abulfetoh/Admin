@@ -2,6 +2,7 @@ import { topPages } from "@/lib/analytics";
 import { listRuns, listSources, listUsers, stats } from "@/lib/admin";
 import { getDb } from "@/lib/db";
 import { requireRole } from "@/lib/session";
+import { SourceForm } from "./source-form";
 import { removeJobAction, roleAction, sourceAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,8 @@ export default async function Admin() {
           </li>))}
         </ul>
       </section>
+
+      <section><h2 className="mb-2 font-semibold">Add a source</h2><SourceForm /></section>
 
       <section><h2 className="mb-2 font-semibold">Recent ingestion runs</h2>
         <table className="w-full text-start text-sm"><thead><tr><th>#</th><th>Source</th><th>Fetched</th><th>New</th><th>Upd</th><th>Dup</th><th>Exp</th><th>Error</th></tr></thead>

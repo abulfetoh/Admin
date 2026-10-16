@@ -11,3 +11,6 @@ Rules the framework enforces or assumes:
 ## Adding a source
 `INSERT INTO sources(key, adapter, config, terms_url) ...` — adapters: `json_feed` (`{url}`), `greenhouse` (`{board, company?}`).
 New adapter: implement `SourceAdapter` in `src/lib/ingest/adapters/` and register it in `run.ts`.
+
+## Adding sources from the admin UI
+`/admin` -> "Add a source": key, adapter, strict JSON config, and a **permission/terms URL** (https). New sources are created *disabled*; review, then enable. Feed URLs must be public https (private/loopback/metadata IP literals are rejected at creation and at fetch time).

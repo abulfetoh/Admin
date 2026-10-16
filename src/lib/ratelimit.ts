@@ -3,12 +3,13 @@ import type { Db } from "./db";
 /** Fixed-window counter in the DB. Returns false when the limit for this window is exceeded. */
 export async function allow(db: Db, key: string, limit: number, windowSec: number, now = new Date()): Promise<boolean> {
   const bucket = Math.floor(now.getTime() / 1000 / windowSec);
+  const expires = new Date((bucket + 2) * windowSec * 1000); // window end + one spare window
   const r = await db.query<{ count: number }>(
-    `INSERT INTO rate_limits(key, bucket, count) VALUES ($1,$2,1)
+    `INSERT INTO rate_limits(key, bucket, count, expires_at) VALUES ($1,$2,1,$3)
      ON CONFLICT (key, bucket) DO UPDATE SET count = rate_limits.count + 1 RETURNING count`,
-    [key, bucket],
+    [key, bucket, expires],
   );
-  if (Math.random() < 0.01) await db.query("DELETE FROM rate_limits WHERE bucket < $1", [bucket - 2 * Math.ceil(86400 / windowSec)]);
+  if (Math.random() < 0.01) await db.query("DELETE FROM rate_limits WHERE expires_at < $1", [now]);
   return r.rows[0].count <= limit;
 }
 

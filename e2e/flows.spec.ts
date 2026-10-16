@@ -91,6 +91,7 @@ test("employer posts a job that becomes searchable and can close it", async ({ p
   await expect(page.getByText(title)).toBeVisible();
   await page.goto("/employer");
   await page.getByRole("button", { name: "Close" }).first().click();
+  await expect(page.getByText("expired")).toBeVisible(); // the action must finish before we navigate away
   await page.goto(`/?q=${encodeURIComponent(title)}`);
   await expect(page.getByText(title)).toHaveCount(0);
 });
@@ -157,4 +158,59 @@ test("forgot password: generic response, link works once, old password stops wor
   await page.getByLabel("Password").fill("a-brand-new-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page).toHaveURL(/\/account$/);
+});
+
+test("employer can edit a job and the change is public", async ({ page }) => {
+  const email = `edit${uniq()}@example.com`;
+  const title = `Editable Role ${uniq()}`;
+  await page.goto("/register");
+  await page.getByLabel("Name").fill("Editor");
+  await page.getByLabel("I am a").selectOption("employer");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(pw);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await confirmEmail(page, email);
+  await page.goto("/employer");
+  await page.getByLabel("Company name").fill("Edit Corp");
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Description").fill("Original description that is long enough to be valid.");
+  await page.getByLabel("Apply URL").fill("https://example.com/apply");
+  await page.getByRole("button", { name: "Publish" }).click();
+  const edit = page.getByRole("link", { name: "Edit", exact: true }); // exact: the job title "Editable Role…" also contains "Edit"
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(page).toHaveURL(/\/employer\/\d+$/);
+  await expect(page.getByRole("heading", { name: "Edit job" })).toBeVisible();
+  await page.getByLabel("Title").fill(`${title} Updated`);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/\/employer$/);
+  await page.goto(`/?q=${encodeURIComponent(title + " Updated")}`);
+  await expect(page.getByText(`${title} Updated`)).toBeVisible();
+});
+
+test("AI summary suggestion is opt-in per click and only applied when accepted", async ({ page }) => {
+  const email = `ai${uniq()}@example.com`;
+  await page.goto("/register");
+  await page.getByLabel("Name").fill("Ai User");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(pw);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  await page.getByLabel("Summary").fill("My own summary");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await page.getByRole("button", { name: "Suggest a summary" }).click();
+  await expect(page.getByText(/^MOCK:/)).toBeVisible();
+  await expect(page.getByLabel("Summary")).toHaveValue("My own summary"); // not applied yet
+  await page.getByRole("button", { name: "Use this summary" }).click();
+  await expect(page.getByLabel("Summary")).toHaveValue(/^MOCK:/);
+});
+
+test("cron endpoint requires the bearer secret", async ({ request }) => {
+  expect((await request.get("/api/cron/cleanup")).status()).toBe(401);
+  expect((await request.get("/api/cron/cleanup", { headers: { authorization: "Bearer wrong-secret-wrong-secret" } })).status()).toBe(401);
+  const ok = await request.post("/api/cron/cleanup", { headers: { authorization: "Bearer e2e-cron-secret-0123456789" } });
+  expect(ok.status()).toBe(200);
+  expect((await ok.json()).task).toBe("cleanup");
+  expect((await request.get("/api/cron/nope", { headers: { authorization: "Bearer e2e-cron-secret-0123456789" } })).status()).toBe(404);
 });
