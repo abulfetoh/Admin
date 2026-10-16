@@ -90,3 +90,41 @@ describe("rate limit", () => {
     expect(await allow(db, "k", 3, 60, new Date("2026-01-01T00:01:10Z"))).toBe(true);
   });
 });
+
+import { deleteAccount, exportUserData } from "@/lib/account";
+import { saveProfile, emptyProfile } from "@/lib/profile";
+import { searchJobs } from "@/lib/jobs";
+
+describe("data export and deletion", () => {
+  it("exports the user's data without secrets, and only theirs", async () => {
+    const db = await memDb();
+    const u = await registerUser(db, reg);
+    const other = await registerUser(db, { ...reg, email: "o@x.com" });
+    await verify(db, u.id);
+    await saveProfile(db, u, { ...emptyProfile(), headline: "Mine" });
+    await saveProfile(db, other, { ...emptyProfile(), headline: "Theirs" });
+    const data = await exportUserData(db, u);
+    const json = JSON.stringify(data);
+    expect(data.profile).toMatchObject({ headline: "Mine" });
+    expect(json).not.toContain("Theirs");
+    expect(json).not.toMatch(/password|scrypt|token_hash/i);
+  });
+  it("needs the right password; deletes everything and takes down the user's jobs", async () => {
+    const db = await memDb();
+    const u = await registerUser(db, reg);
+    await verify(db, u.id);
+    await createJob(db, u, "Co", { title: "Findable Role", description: "Description long enough to be valid here.", apply_url: "https://a.test/x" });
+    await saveProfile(db, u, emptyProfile());
+    await createSession(db, u.id);
+    await expect(deleteAccount(db, u, "wrong-password")).rejects.toThrow(/Incorrect/);
+    await deleteAccount(db, u, reg.password);
+    for (const t of ["users", "profiles", "sessions", "auth_tokens"]) expect((await db.query(`SELECT 1 FROM ${t}`)).rows).toHaveLength(0);
+    expect((await searchJobs(db, { q: "findable" })).total).toBe(0);
+  });
+  it("refuses to delete the last admin", async () => {
+    const db = await memDb();
+    const u = await registerUser(db, reg);
+    await db.query("UPDATE users SET role='admin' WHERE id=$1", [u.id]);
+    await expect(deleteAccount(db, { ...u, role: "admin" }, reg.password)).rejects.toThrow(/last admin/);
+  });
+});

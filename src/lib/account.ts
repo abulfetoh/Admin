@@ -61,3 +61,30 @@ export async function resetPassword(db: Db, raw: string, newPassword: string, no
   await db.query("UPDATE users SET password_hash=$2, failed_logins=0, locked_until=NULL WHERE id=$1", [id, await hashPassword(p.data)]);
   await db.query("DELETE FROM sessions WHERE user_id=$1", [id]); // log out every device
 }
+
+/** Everything we hold about the user, for a data-portability request. Password hash and session tokens are deliberately excluded. */
+export async function exportUserData(db: Db, user: User) {
+  const q = async (sql: string) => (await db.query(sql, [user.id])).rows;
+  return {
+    exported_at: new Date().toISOString(),
+    user: (await q("SELECT id, email, name, role, email_verified_at, created_at FROM users WHERE id=$1"))[0],
+    profile: (await q("SELECT headline, summary, location, phone, skills, experience, education, updated_at FROM profiles WHERE user_id=$1"))[0] ?? null,
+    saved_searches: await q("SELECT q, location, remote, created_at FROM saved_searches WHERE user_id=$1 ORDER BY id"),
+    posted_jobs: await q("SELECT id, title, status, posted_at FROM jobs WHERE posted_by=$1 ORDER BY id"),
+    emails_sent: await q("SELECT subject, status, created_at FROM email_outbox WHERE to_email=(SELECT email FROM users WHERE id=$1) ORDER BY id"),
+    ai_usage: await q("SELECT feature, created_at FROM ai_usage WHERE user_id=$1 ORDER BY id"),
+  };
+}
+
+/** Requires the current password. Deletes the account and cascades profile/sessions/alerts/tokens; the user's posted jobs are taken down. */
+export async function deleteAccount(db: Db, user: User, password: string): Promise<void> {
+  const row = (await db.query<{ password_hash: string; role: string }>("SELECT password_hash, role FROM users WHERE id=$1", [user.id])).rows[0];
+  if (!row || !(await (await import("./auth")).verifyPassword(password, row.password_hash))) throw new AuthError("Incorrect password");
+  if (row.role === "admin") {
+    const n = Number((await db.query<{ n: string }>("SELECT count(*) n FROM users WHERE role='admin'")).rows[0].n);
+    if (n <= 1) throw new AuthError("The last admin cannot be deleted");
+  }
+  await db.query("UPDATE jobs SET status='removed' WHERE posted_by=$1", [user.id]);
+  await db.query("DELETE FROM email_outbox WHERE to_email=(SELECT email FROM users WHERE id=$1)", [user.id]);
+  await db.query("DELETE FROM users WHERE id=$1", [user.id]);
+}
