@@ -8,4 +8,4 @@
 | AI (Anthropic Messages API) | implemented, off by default | mocked fetch only; never called live |
 | Google AdSense | script loader gated by consent + `ADSENSE_CLIENT` | e2e confirms nothing loads pre-consent; no publisher account, so ad serving untested. **The banner is not a Google-certified CMP; serving ads to EEA/UK users requires one.** |
 | Analytics | first-party, aggregate | unit + e2e |
-| GitHub Actions CI | `.github/workflows/ci.yml` | **never executed** (no remote repo); same commands pass locally |
+| GitHub Actions CI | `.github/workflows/ci.yml` | executed on GitHub: green on commit 46e7dab. First two runs failed (invalid YAML I wrote; then a locale-dependent test bug) and were fixed |
