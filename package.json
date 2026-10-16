@@ -13,6 +13,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "ingest": "tsx scripts/ingest.ts",
     "seed": "tsx scripts/seed.ts",
+    "alerts": "tsx scripts/alerts.ts",
     "make-admin": "tsx scripts/make-admin.ts"
   },
   "dependencies": {

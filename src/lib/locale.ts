@@ -5,4 +5,4 @@ export async function getLocale(): Promise<Locale> {
   const v = (await cookies()).get("lang")?.value;
   return isLocale(v) ? v : DEFAULT_LOCALE;
 }
-export const SITE_URL = (process.env.SITE_URL ?? "https://today-jobs.com").replace(/\/$/, "");
+export { SITE_URL } from "./locale-const";
