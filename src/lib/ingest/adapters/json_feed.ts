@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { RawJob, SourceAdapter } from "../types";
-import { assertPublicHttpsUrl, getJson } from "../util";
+import { assertPublicHttpsUrl, getJson, httpUrl } from "../util";
 
 /**
  * Generic adapter for an employer/partner-provided JSON feed that they have
@@ -11,7 +11,7 @@ const Item = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   title: z.string().min(1),
   company: z.string().min(1),
-  company_website: z.string().url().optional(),
+  company_website: httpUrl.optional(),
   description: z.string().optional(),
   location: z.string().optional(),
   country: z.string().optional(),
@@ -21,7 +21,7 @@ const Item = z.object({
   salary_min: z.number().optional(),
   salary_max: z.number().optional(),
   salary_currency: z.string().optional(),
-  apply_url: z.string().url(),
+  apply_url: httpUrl,
   posted_at: z.string().optional(),
   valid_through: z.string().optional(),
 });

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { RawJob, SourceAdapter } from "../types";
-import { getJson, stripHtml } from "../util";
+import { getJson, httpUrl, stripHtml } from "../util";
 
 /**
  * Greenhouse public Job Board API (https://developers.greenhouse.io/job-board.html).
@@ -11,7 +11,7 @@ const Resp = z.object({
     z.object({
       id: z.number(),
       title: z.string(),
-      absolute_url: z.string().url(),
+      absolute_url: httpUrl,
       updated_at: z.string().optional(),
       first_published: z.string().optional(),
       content: z.string().optional(),

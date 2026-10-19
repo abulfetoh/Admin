@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "./db";
 import type { User } from "./auth";
 import { isVerified } from "./account";
+import { allow } from "./ratelimit";
 import { contentHash, dedupeKey, slugify } from "./ingest/util";
 
 export class ForbiddenError extends Error {}
@@ -31,6 +32,7 @@ export async function ensureCompany(db: Db, user: User, name: string): Promise<n
 export async function createJob(db: Db, user: User, companyName: string, input: unknown): Promise<number> {
   if (user.role !== "employer" && user.role !== "admin") throw new ForbiddenError("Employers only");
   if (!(await isVerified(db, user.id))) throw new ForbiddenError("Verify your email before posting jobs");
+  if (!(await allow(db, `postjob:${user.id}`, 20, 86400))) throw new ForbiddenError("Daily job posting limit reached"); // spam brake
   const p = JobInput.parse(input);
   const vt = p.valid_through ? new Date(p.valid_through) : null;
   if (vt && Number.isNaN(vt.getTime())) throw new Error("Invalid valid_through");

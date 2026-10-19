@@ -25,8 +25,13 @@ export async function deliverNow(db: Db): Promise<void> {
   try { await flushOutbox(db, getTransport(), 10); } catch (e) { console.error("deliverNow failed", e); }
 }
 
+/** Header values must never contain line breaks (header injection with SMTP-style providers); user text flows into subjects. */
+export const headerSafe = (s: string, max = 200) => s.replace(/[\r\n\u2028\u2029\0]+/g, " ").trim().slice(0, max);
+
 export async function enqueueEmail(db: Db, m: EmailMessage): Promise<void> {
-  await db.query("INSERT INTO email_outbox(to_email, subject, body) VALUES ($1,$2,$3)", [m.to, m.subject, m.body]);
+  const to = headerSafe(m.to, 254);
+  if (!/^[^\s@,;<>]+@[^\s@,;<>]+$/.test(to)) throw new Error("Invalid recipient address"); // exactly one plain address
+  await db.query("INSERT INTO email_outbox(to_email, subject, body) VALUES ($1,$2,$3)", [to, headerSafe(m.subject), m.body]);
 }
 
 const MAX_ATTEMPTS = 3;

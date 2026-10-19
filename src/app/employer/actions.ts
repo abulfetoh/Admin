@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { createJob, setJobStatus, updateJob } from "@/lib/employer";
+import { createJob, ForbiddenError, setJobStatus, updateJob } from "@/lib/employer";
 import { getDb } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 
@@ -15,6 +15,7 @@ export async function postJobAction(_: { error?: string }, fd: FormData): Promis
     await createJob(await getDb(), user, String(fd.get("company") || user.name), data);
   } catch (e) {
     if (e instanceof ZodError) return { error: e.issues[0].message };
+    if (e instanceof ForbiddenError) return { error: e.message }; // e.g. email not verified, daily limit
     throw e;
   }
   redirect("/employer");

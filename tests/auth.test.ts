@@ -40,6 +40,8 @@ describe("auth", () => {
     const msg = async (e: string, p: string) => login(db, e, p).catch((x: Error) => x.message);
     expect(await msg("nobody@x.com", "whatever12345")).toBe(await msg("a@example.com", "wrong-password"));
     for (let i = 0; i < 4; i++) await msg("a@example.com", "wrong-password");
-    expect(await msg("a@example.com", reg.password)).toMatch(/Too many/); // correct password still blocked while locked
+    // locked: correct password is still refused, with the SAME message as an unknown email (lockout can't confirm an account exists)
+    expect(await msg("a@example.com", reg.password)).toBe(await msg("nobody@x.com", "whatever12345"));
+    expect((await db.query<{ locked_until: Date | null }>("SELECT locked_until FROM users")).rows[0].locked_until).not.toBeNull();
   });
 });

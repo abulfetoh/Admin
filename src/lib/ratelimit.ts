@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import type { Db } from "./db";
 
 /** Fixed-window counter in the DB. Returns false when the limit for this window is exceeded. */
@@ -14,9 +15,13 @@ export async function allow(db: Db, key: string, limit: number, windowSec: numbe
 }
 
 /**
- * Client IP. x-forwarded-for is only trustworthy behind a proxy that overwrites it; deploy behind one
- * (or the limit is trivially bypassed by spoofing the header).
+ * Client IP for rate limiting. Anything left of the entries appended by our own proxies is client-controlled, so we
+ * take the entry `hops` places from the RIGHT (TRUSTED_PROXY_HOPS, default 1 = one proxy/platform in front, which
+ * either appends or overwrites X-Forwarded-For — the rightmost value is the peer it saw). If the header is missing or
+ * shorter than `hops` the request did not come through the expected proxies, so we do not trust it.
  */
-export function clientIp(h: { get(n: string): string | null }): string {
-  return h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "unknown";
+export function clientIp(h: { get(n: string): string | null }, hops = Number(process.env.TRUSTED_PROXY_HOPS ?? 1)): string {
+  const parts = (h.get("x-forwarded-for") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  const candidate = hops >= 1 && parts.length >= hops ? parts[parts.length - hops] : (h.get("x-real-ip") ?? "").trim();
+  return isIP(candidate) ? candidate : "unknown"; // validated: bounded length, no attacker-chosen rate-limit keys
 }

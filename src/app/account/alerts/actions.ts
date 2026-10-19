@@ -10,7 +10,7 @@ export async function createAlertAction(fd: FormData) {
   try {
     await createSavedSearch(await getDb(), user, { q: fd.get("q") ?? "", location: fd.get("location") ?? "", remote: fd.get("remote") === "on" });
   } catch (e) {
-    if (!(e instanceof ZodError) && !(e instanceof Error && /up to/.test(e.message))) throw e;
+    if (!(e instanceof ZodError) && !(e instanceof Error && /up to|Verify your email/.test(e.message))) throw e; // expected user-facing refusals
   }
   revalidatePath("/account/alerts");
 }
