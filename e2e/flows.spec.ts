@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 
+test.beforeEach(async ({ context }) => context.setExtraHTTPHeaders({ "x-forwarded-for": `198.51.100.${1 + Math.floor(Math.random() * 250)}` })); // each test gets its own rate-limit bucket
+
 const pw = "correct-horse-battery";
 /** Newest email to `to` from the file transport; polls because delivery happens just after the action returns. */
 async function linkFor(to: string, kind: "verify" | "reset"): Promise<string> {

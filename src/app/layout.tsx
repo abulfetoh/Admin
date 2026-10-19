@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
-        <ConsentAndTracking locale={locale} gpc={gpc} adsClient={process.env.ADSENSE_CLIENT} labels={{ text: s.consentText, accept: s.consentAccept, reject: s.consentReject }} />
+        <ConsentAndTracking nonce={(await headers()).get("x-nonce") ?? undefined} locale={locale} gpc={gpc} adsClient={process.env.ADSENSE_CLIENT} labels={{ text: s.consentText, accept: s.consentAccept, reject: s.consentReject }} />
       </body>
     </html>
   );

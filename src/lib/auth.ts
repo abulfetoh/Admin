@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual, type Scry
 import { promisify } from "node:util";
 
 import { z } from "zod";
+import { createLimiter } from "./semaphore";
 import type { Db } from "./db";
 
 const scryptRaw = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, opts: ScryptOptions) => Promise<Buffer>;
@@ -17,15 +18,9 @@ export function scryptCost() {
 const KEYLEN = 64;
 
 // Each hash can allocate ~128 MB; bound concurrency so a burst of logins can't exhaust memory.
-let active = 0;
-const waiting: (() => void)[] = [];
-async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
-  if (active >= 2) await new Promise<void>((r) => waiting.push(r));
-  active++;
-  try { return await fn(); } finally { active--; waiting.shift()?.(); }
-}
+const limited = createLimiter(2);
 const derive = (pw: string, salt: Buffer, len: number, c: { N: number; r: number; p: number }) =>
-  withSlot(() => scryptRaw(pw, salt, len, { ...c, maxmem: 256 * 1024 * 1024 }));
+  limited(() => scryptRaw(pw, salt, len, { ...c, maxmem: 256 * 1024 * 1024 }));
 
 /** Format: scrypt$N$r$p$saltHex$keyHex (parameters stored so they can be raised later). */
 export async function hashPassword(pw: string): Promise<string> {

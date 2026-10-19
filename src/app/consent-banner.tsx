@@ -11,7 +11,7 @@ const EVENT = "consent-change";
 const rawCookie = () => document.cookie.split("; ").find((c) => c.startsWith(`${CONSENT_COOKIE}=`))?.slice(CONSENT_COOKIE.length + 1) ?? "";
 const subscribe = (cb: () => void) => { window.addEventListener(EVENT, cb); return () => window.removeEventListener(EVENT, cb); };
 
-export function ConsentAndTracking({ labels, locale, adsClient, gpc }: { labels: Labels; locale: string; adsClient?: string; gpc: boolean }) {
+export function ConsentAndTracking({ labels, locale, adsClient, gpc, nonce }: { labels: Labels; locale: string; adsClient?: string; gpc: boolean; nonce?: string }) {
   const raw = useSyncExternalStore(subscribe, rawCookie, () => null);
   const consent: Consent | null | undefined = raw === null ? undefined : parseConsent(raw);
   const path = usePathname();
@@ -30,7 +30,7 @@ export function ConsentAndTracking({ labels, locale, adsClient, gpc }: { labels:
   return (
     <>
       {consent?.ads && !gpc && adsClient && (
-        <Script async strategy="afterInteractive" crossOrigin="anonymous" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsClient)}`} />
+        <Script async nonce={nonce} strategy="afterInteractive" crossOrigin="anonymous" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsClient)}`} />
       )}
       {consent === null && !gpc && <div aria-hidden className="h-32 sm:h-20" />}
       {consent === null && !gpc && (

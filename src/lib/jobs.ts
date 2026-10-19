@@ -39,8 +39,10 @@ export interface SearchResult {
 }
 
 export async function searchJobs(db: Db, p: SearchParams): Promise<SearchResult> {
-  const pageSize = Math.min(Math.max(p.pageSize ?? 20, 1), 50);
-  const offset = (Math.max(p.page ?? 1, 1) - 1) * pageSize;
+  // pageSize and offset are interpolated into the SQL text, so they MUST be small finite integers (never NaN/Infinity/1e300).
+  const clampInt = (v: unknown, min: number, max: number, dflt: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), min), max) : dflt);
+  const pageSize = clampInt(p.pageSize, 1, 50, 20);
+  const offset = (clampInt(p.page, 1, 10_000, 1) - 1) * pageSize;
   const q = p.q?.trim().slice(0, 200) ?? "";
 
   const filters: string[] = ["j.status = 'active'"];
